@@ -1,12 +1,39 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import Navigation from '@/components/Navigation';
+import LandingPage from '@/components/LandingPage';
+import DocumentUpload from '@/components/DocumentUpload';
+import ChatBot from '@/components/ChatBot';
+import LoginPage from '@/components/LoginPage';
 
 const Index = () => {
+  const [currentPage, setCurrentPage] = useState<string>('home');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'login':
+        return <LoginPage onPageChange={setCurrentPage} />;
+      case 'upload':
+        return <DocumentUpload />;
+      case 'chat':
+        return <ChatBot />;
+      case 'home':
+      default:
+        return <LandingPage onPageChange={setCurrentPage} />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-white">
+      {currentPage !== 'login' && (
+        <Navigation
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+          isAuthenticated={isAuthenticated}
+        />
+      )}
+      {renderPage()}
     </div>
   );
 };
