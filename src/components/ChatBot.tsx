@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Mic, Volume2, Languages, MessageCircle, Bot, User } from 'lucide-react';
+import { Send, Mic, Volume2, Languages, MessageCircle, Bot, User, HelpCircle } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -25,12 +25,12 @@ const ChatBot: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
 
   const commonQuestions = [
-    "What is EMI?",
-    "How is interest calculated?",
-    "What happens if I miss a payment?",
-    "Can I prepay my loan?",
-    "What is foreclosure?",
-    "What are processing fees?"
+    { text: "What is EMI?", icon: "💰" },
+    { text: "How is interest calculated?", icon: "📊" },
+    { text: "What happens if I miss a payment?", icon: "⚠️" },
+    { text: "Can I prepay my loan?", icon: "💸" },
+    { text: "What is foreclosure?", icon: "🏠" },
+    { text: "What are processing fees?", icon: "💳" }
   ];
 
   const sendMessage = (text: string) => {
@@ -120,37 +120,62 @@ const ChatBot: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Quick Questions Sidebar */}
+          {/* Enhanced Quick Questions Sidebar */}
           <div className="lg:col-span-1">
-            <Card className="bg-white shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Common Questions</CardTitle>
+            <Card className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 border-0">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold flex items-center text-gray-800">
+                  <HelpCircle className="h-5 w-5 mr-2 text-purple-600" />
+                  Common Questions
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 {commonQuestions.map((question, index) => (
-                  <Button
+                  <div
                     key={index}
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-left justify-start h-auto p-3 text-sm"
-                    onClick={() => sendMessage(question)}
+                    className="group relative overflow-hidden rounded-lg"
                   >
-                    {question}
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-left justify-start h-auto p-4 text-sm border-gray-200 hover:border-purple-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 transition-all duration-300 transform hover:scale-105 hover:shadow-md group-hover:text-purple-700"
+                      onClick={() => sendMessage(question.text)}
+                    >
+                      <span className="text-lg mr-3 group-hover:animate-pulse">
+                        {question.icon}
+                      </span>
+                      <span className="flex-1 leading-relaxed group-hover:font-medium transition-all duration-200">
+                        {question.text}
+                      </span>
+                    </Button>
+                    {/* Subtle gradient overlay on hover */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-100/0 to-pink-100/0 group-hover:from-purple-100/20 group-hover:to-pink-100/20 transition-all duration-300 pointer-events-none rounded-lg"></div>
+                  </div>
                 ))}
+                
+                {/* Additional helpful tip */}
+                <div className="mt-6 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-100">
+                  <p className="text-xs text-gray-600 text-center">
+                    💡 Click any question above or type your own below
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>
 
           {/* Chat Interface */}
           <div className="lg:col-span-3">
-            <Card className="bg-white shadow-lg h-[600px] flex flex-col">
-              <CardHeader className="border-b">
+            <Card className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 h-[600px] flex flex-col border-0">
+              <CardHeader className="border-b border-gray-100">
                 <CardTitle className="flex items-center">
                   <MessageCircle className="h-6 w-6 mr-2 text-purple-600" />
                   Loan Assistant
                   <div className="ml-auto flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="hover:bg-purple-50 hover:border-purple-300 transition-all duration-200"
+                    >
                       <Languages className="h-4 w-4 mr-1" />
                       हिंदी
                     </Button>
@@ -164,13 +189,13 @@ const ChatBot: React.FC = () => {
                   {messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
                     >
                       <div
-                        className={`max-w-[80%] rounded-lg p-4 ${
+                        className={`max-w-[80%] rounded-lg p-4 transition-all duration-300 hover:shadow-md ${
                           message.sender === 'user'
-                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                            : 'bg-gray-100 text-gray-900'
+                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700'
+                            : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                         }`}
                       >
                         <div className="flex items-start space-x-2">
@@ -181,12 +206,12 @@ const ChatBot: React.FC = () => {
                             <User className="h-5 w-5 text-white mt-1 flex-shrink-0" />
                           )}
                           <div className="flex-1">
-                            <p className="text-sm">{message.text}</p>
+                            <p className="text-sm leading-relaxed">{message.text}</p>
                             {message.sender === 'bot' && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="mt-2 h-6 text-xs text-purple-600 hover:text-purple-700"
+                                className="mt-2 h-6 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-all duration-200"
                                 onClick={() => speakText(message.text)}
                               >
                                 <Volume2 className="h-3 w-3 mr-1" />
@@ -201,27 +226,31 @@ const ChatBot: React.FC = () => {
                 </div>
               </CardContent>
 
-              {/* Input Area */}
-              <div className="border-t p-4">
+              {/* Enhanced Input Area */}
+              <div className="border-t border-gray-100 p-4 bg-gray-50">
                 <div className="flex space-x-2">
                   <Input
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="Ask me anything about loans..."
                     onKeyPress={(e) => e.key === 'Enter' && sendMessage(inputText)}
-                    className="flex-1"
+                    className="flex-1 border-gray-200 focus:border-purple-300 focus:ring-purple-200 transition-all duration-200"
                   />
                   <Button
                     onClick={startListening}
                     variant="outline"
                     size="icon"
-                    className={isListening ? 'bg-red-100 text-red-600' : ''}
+                    className={`transition-all duration-300 hover:scale-105 ${
+                      isListening 
+                        ? 'bg-red-100 text-red-600 border-red-300 hover:bg-red-200' 
+                        : 'hover:bg-purple-50 hover:border-purple-300'
+                    }`}
                   >
                     <Mic className={`h-4 w-4 ${isListening ? 'animate-pulse' : ''}`} />
                   </Button>
                   <Button
                     onClick={() => sendMessage(inputText)}
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all duration-300 hover:scale-105 hover:shadow-lg"
                   >
                     <Send className="h-4 w-4" />
                   </Button>
