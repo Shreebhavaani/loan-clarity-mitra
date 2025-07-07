@@ -2,21 +2,35 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle, LogIn } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const DocumentUpload: React.FC = () => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extractedText, setExtractedText] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
+  const [user, setUser] = useState(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadDocument, processDocument, isLoading } = useSupabase();
   const { toast } = useToast();
 
-  // Simulate user ID for now - will be replaced with actual auth
-  const userId = 'temp-user-id';
+  // Check authentication status
+  React.useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -62,10 +76,10 @@ const DocumentUpload: React.FC = () => {
   };
 
   const handleFileUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !user) return;
 
     try {
-      const document = await uploadDocument(selectedFile, userId);
+      const document = await uploadDocument(selectedFile, user.id);
       
       // Simulate text extraction (in real app, this would use OCR)
       const mockExtractedText = `Loan Agreement\n\nLoan Amount: ₹5,00,000\nInterest Rate: 12% per annum\nTenure: 5 years\nEMI: ₹11,122\n\nThis is a sample extracted text from the uploaded document. In a real implementation, this would be extracted using OCR technology.`;
@@ -84,6 +98,52 @@ const DocumentUpload: React.FC = () => {
       console.error('Upload/processing error:', error);
     }
   };
+
+  const handleSignIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+      if (error) throw error;
+    } catch (error) {
+      toast({
+        title: "Sign in failed",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50 p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+              Document Upload
+            </h1>
+            <p className="text-gray-600">Please sign in to upload and analyze your loan documents</p>
+          </div>
+
+          <Card className="shadow-lg">
+            <CardContent className="p-8 text-center">
+              <LogIn className="h-16 w-16 mx-auto text-purple-600 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Authentication Required</h3>
+              <p className="text-gray-600 mb-6">
+                You need to be signed in to upload and process loan documents securely.
+              </p>
+              <Button 
+                onClick={handleSignIn}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                Sign In to Continue
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50 p-6">

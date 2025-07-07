@@ -3,9 +3,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Bot, User, Volume2, Languages, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Volume2, Languages, Loader2, LogIn, AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSupabase } from '@/hooks/useSupabase';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Message {
   id: string;
@@ -26,8 +28,11 @@ const ChatBot: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('english');
   const [isTyping, setIsTyping] = useState(false);
+  const [user, setUser] = useState(null);
+  const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { askQuestion, translateText } = useSupabase();
+  const { toast } = useToast();
 
   const languages = [
     { value: 'english', label: 'English' },
@@ -40,6 +45,21 @@ const ChatBot: React.FC = () => {
     { value: 'punjabi', label: 'ਪੰਜਾਬੀ (Punjabi)' }
   ];
 
+  // Check authentication status
+  React.useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -49,7 +69,7 @@ const ChatBot: React.FC = () => {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || !user) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -61,14 +81,19 @@ const ChatBot: React.FC = () => {
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsTyping(true);
+    setApiKeyMissing(false);
 
     try {
       // Get AI response
-      let response = await askQuestion(inputText);
+      let response = await askQuestion(inputText, undefined, selectedLanguage);
       
-      // Translate if needed
+      // Translate if needed and language is not English
       if (selectedLanguage !== 'english') {
-        response = await translateText(response, selectedLanguage);
+        try {
+          response = await translateText(response, selectedLanguage);
+        } catch (translationError) {
+          console.log('Translation failed, using original response');
+        }
       }
 
       const botMessage: Message = {
@@ -81,13 +106,20 @@ const ChatBot: React.FC = () => {
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMessage: Message = {
+      let errorMessage = 'I apologize, but I\'m having trouble responding right now. Please try again later.';
+      
+      if (error.message?.includes('OpenAI API key not configured')) {
+        errorMessage = 'The AI service is not configured yet. Please contact support to set up the OpenAI API key.';
+        setApiKeyMissing(true);
+      }
+
+      const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'I apologize, but I\'m having trouble responding right now. Please try again later.',
+        text: errorMessage,
         sender: 'bot',
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsTyping(false);
     }
@@ -109,6 +141,52 @@ const ChatBot: React.FC = () => {
     }
   };
 
+  const handleSignIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+      if (error) throw error;
+    } catch (error) {
+      toast({
+        title: "Sign in failed",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+              LoanMitra Assistant
+            </h1>
+            <p className="text-gray-600">Please sign in to chat with your AI financial assistant</p>
+          </div>
+
+          <Card className="shadow-lg">
+            <CardContent className="p-8 text-center">
+              <LogIn className="h-16 w-16 mx-auto text-purple-600 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Authentication Required</h3>
+              <p className="text-gray-600 mb-6">
+                Sign in to access your personalized AI assistant for loan guidance and document analysis.
+              </p>
+              <Button 
+                onClick={handleSignIn}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                Sign In to Chat
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50 p-6">
       <div className="max-w-4xl mx-auto">
@@ -118,6 +196,19 @@ const ChatBot: React.FC = () => {
           </h1>
           <p className="text-gray-600">Ask questions about your loan documents and financial planning</p>
         </div>
+
+        {apiKeyMissing && (
+          <Card className="shadow-lg mb-6 border-orange-200">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-orange-700">
+                <AlertCircle className="h-5 w-5" />
+                <p className="text-sm">
+                  AI features require OpenAI API key configuration. Please contact support.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="shadow-lg h-[600px] flex flex-col">
           <CardHeader className="border-b">

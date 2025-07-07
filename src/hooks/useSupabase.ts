@@ -10,22 +10,33 @@ export const useSupabase = () => {
   const uploadDocument = async (file: File, userId: string) => {
     setIsLoading(true);
     try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Please sign in to upload documents');
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${userId}/${fileName}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      console.log('Uploading file:', { filePath, fileSize: file.size, fileType: file.type });
 
       // Upload file to storage
       const { error: uploadError } = await supabase.storage
         .from('loan-documents')
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
       // Insert document record
       const { data, error: dbError } = await supabase
         .from('loan_documents')
         .insert({
-          user_id: userId,
+          user_id: user.id,
           file_name: file.name,
           file_path: filePath,
           file_size: file.size,
@@ -35,7 +46,10 @@ export const useSupabase = () => {
         .select()
         .single();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('Database error:', dbError);
+        throw dbError;
+      }
 
       toast({
         title: "Document uploaded successfully",
@@ -47,7 +61,7 @@ export const useSupabase = () => {
       console.error('Upload error:', error);
       toast({
         title: "Upload failed",
-        description: "There was an error uploading your document.",
+        description: error.message || "There was an error uploading your document.",
         variant: "destructive",
       });
       throw error;
@@ -56,13 +70,18 @@ export const useSupabase = () => {
     }
   };
 
-  const processDocument = async (documentId: string, text: string) => {
+  const processDocument = async (documentId: string, text: string, language = 'english') => {
     try {
+      console.log('Processing document:', { documentId, textLength: text.length, language });
+      
       const { data, error } = await supabase.functions.invoke('process-document', {
-        body: { documentId, text }
+        body: { documentId, text, language }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Processing error:', error);
+        throw error;
+      }
       return data;
     } catch (error) {
       console.error('Processing error:', error);
@@ -72,11 +91,16 @@ export const useSupabase = () => {
 
   const translateText = async (text: string, targetLanguage: string) => {
     try {
+      console.log('Translating text:', { textLength: text.length, targetLanguage });
+      
       const { data, error } = await supabase.functions.invoke('translate-text', {
         body: { text, targetLanguage }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Translation error:', error);
+        throw error;
+      }
       return data.translatedText;
     } catch (error) {
       console.error('Translation error:', error);
@@ -84,13 +108,18 @@ export const useSupabase = () => {
     }
   };
 
-  const askQuestion = async (question: string, context?: string) => {
+  const askQuestion = async (question: string, context?: string, language = 'english') => {
     try {
+      console.log('Asking question:', { question, hasContext: !!context, language });
+      
       const { data, error } = await supabase.functions.invoke('chat-assistant', {
-        body: { question, context }
+        body: { question, context, language }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Chat error:', error);
+        throw error;
+      }
       return data.answer;
     } catch (error) {
       console.error('Chat error:', error);
@@ -106,7 +135,10 @@ export const useSupabase = () => {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Get documents error:', error);
+        throw error;
+      }
       return data;
     } catch (error) {
       console.error('Get documents error:', error);
